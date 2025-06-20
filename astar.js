@@ -38,11 +38,11 @@ export class AStarNode {
 
 export class AStar {
     constructor() {
-        /**@type {Vector2[]} */
-        this.obstacles = [];
+        /**@type {Map<number, Vector2>} */
+        this.obstacles = new Map();
 
-        this.startPoint = new Vector2(30, 15);
-        this.endPoint = new Vector2(3, 3);
+        this.startPoint = new Vector2(5, 5);
+        this.endPoint = new Vector2(35, 25);
 
         this.openList = new MinBinaryHeap();
 
@@ -85,7 +85,8 @@ export class AStar {
     checkOffset(displacementCost, newPosition, currentNode) {
         const indexPosition = coordinateToIndex(this.columnWidth, newPosition);
         if (this.isInBounds(newPosition) && !this.closedList.has(indexPosition)) {
-            if (this.obstacles.find((p) => p.equals(newPosition))) {
+
+            if (this.obstacles.has(indexPosition)) {
                 return true;
             }
 

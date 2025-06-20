@@ -1,4 +1,5 @@
 import { AStar } from "./astar.js";
+import { coordinateToIndex } from "./utils.js";
 import { Vector2 } from "./vector2.js";
 
 export class Grid {
@@ -15,9 +16,6 @@ export class Grid {
         this.cellSize = cellSize;
 
         this.isMouseDown = false;
-
-        /**@type {Vector2[]} */
-        this.obstacles = [];
 
         this.canvas = canvas;
         this.canvas.width = cellSize * columnLength;
@@ -48,7 +46,6 @@ export class Grid {
 
     render() {
         this.renderObstacles();
-        // this.renderOpenList();
         this.renderResolvedPath();
         this.renderStartPoint();
         this.renderEndPoint();
@@ -58,7 +55,7 @@ export class Grid {
     renderResolvedPath() {
         if (this.aStar.foundTarget) {
             for (let i = 1; i < this.aStar.resolvedPath.length; i++) {
-                this.line(this.aStar.resolvedPath[i-1], this.aStar.resolvedPath[i]);
+                this.line(this.aStar.resolvedPath[i - 1], this.aStar.resolvedPath[i]);
             }
         }
     }
@@ -73,19 +70,10 @@ export class Grid {
         }
     }
 
-    renderOpenList() {
-        for (let i = 0; i < this.aStar.openList.length; i++) {
-            const position = this.aStar.openList[i].position;
-            this.ctx.fillStyle = "#5accf2";
-            this.ctx.beginPath();
-            this.ctx.rect(position.x * this.cellSize, position.y * this.cellSize, this.cellSize, this.cellSize);
-            this.ctx.fill();
-        }
-    }
-
     /**@private */
     renderObstacles() {
-        for (const obstacle of this.aStar.obstacles) {
+
+        for (const obstacle of this.aStar.obstacles.values()) {
             this.ctx.fillStyle = "#787878";
             this.ctx.beginPath();
             this.ctx.rect(obstacle.x * this.cellSize, obstacle.y * this.cellSize, this.cellSize, this.cellSize);
@@ -135,8 +123,6 @@ export class Grid {
         if (!this.isMouseDown)
             return;
 
-
-
         const pos = new Vector2(Math.floor(e.offsetX / this.cellSize), Math.floor(e.offsetY / this.cellSize));
 
         if (this.oldPos.equals(pos) && !isClick) {
@@ -144,12 +130,12 @@ export class Grid {
         }
 
         this.oldPos = pos;
-        const index = this.aStar.obstacles.findIndex(w => w.equals(pos));
+        const indexPosition = coordinateToIndex(this.columnWidth, pos);
 
-        if (index == -1) {
-            this.aStar.obstacles.push(pos);
+        if (this.aStar.obstacles.has(indexPosition)) {
+            this.aStar.obstacles.delete(indexPosition);
         } else {
-            this.aStar.obstacles.splice(index, 1);
+            this.aStar.obstacles.set(indexPosition, pos);
         }
     }
 

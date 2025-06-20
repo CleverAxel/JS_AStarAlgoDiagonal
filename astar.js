@@ -1,4 +1,5 @@
-import { octileDistance } from "./utils.js";
+import { MinBinaryHeap } from "./MinBinaryHeap.js";
+import { coordinateToIndex, octileDistance } from "./utils.js";
 import { Vector2 } from "./vector2.js";
 
 export class AStarNode {
@@ -6,7 +7,7 @@ export class AStarNode {
         /**distance from starting node - calculated cost 1 up down left right & 1.4 in diagonal */
         this.gCost = 0;
 
-        /**distance from end node - calculated with the manhattan distance */
+        /**distance from end node - calculated with the manhattan/octile distance */
         this.hCost = 0;
 
         /**G cost + H cost */
@@ -40,14 +41,16 @@ export class AStar {
         /**@type {Vector2[]} */
         this.obstacles = [];
 
-        this.startPoint = new Vector2(15, 15);
+        this.startPoint = new Vector2(30, 15);
         this.endPoint = new Vector2(3, 3);
 
-        /**@type {AStarNode[]} */
-        this.openList = [];
+        this.openList = new MinBinaryHeap();
 
-        /**@type {AStarNode[]} */
-        this.closedList = [];
+        /**@type {Map<number, AStarNode>} */
+        this.openListLookUp = new Map();
+
+        /**@type {Set<number>} */
+        this.closedList = new Set();
 
         /**@type {Vector2[]} */
         this.visited = [];
@@ -67,12 +70,7 @@ export class AStar {
         this.columnWidth = 0;
         this.rowHeight = 0;
 
-
-        const newNode = new AStarNode();
-        newNode.position = this.startPoint.clone();
-        this.openList.push(newNode);
-
-        /**@type {AStarNode|null} */
+        /**@type {AStarNode|null} only used to trace back the path if the target is found*/
         this.currentNode = null;
 
         /**@type {Vector2[]} */
@@ -85,13 +83,13 @@ export class AStar {
      * @param {AStarNode} currentNode 
      */
     checkOffset(displacementCost, newPosition, currentNode) {
-        if (this.isInBounds(newPosition) && !this.closedList.find((p) => p.position.equals(newPosition))) {
+        const indexPosition = coordinateToIndex(this.columnWidth, newPosition);
+        if (this.isInBounds(newPosition) && !this.closedList.has(indexPosition)) {
             if (this.obstacles.find((p) => p.equals(newPosition))) {
                 return true;
             }
 
-            const isInOpenList = this.openList.find(p => p.position.equals(newPosition));
-
+            const isInOpenList = this.openListLookUp.get(indexPosition);
             if (isInOpenList) {
                 const gCost = isInOpenList.gCost;
                 if (currentNode.gCost + displacementCost < gCost) {
@@ -104,6 +102,7 @@ export class AStar {
                 newNode.parent = currentNode;
                 newNode.calculateCost(displacementCost, this.endPoint);
                 this.openList.push(newNode);
+                this.openListLookUp.set(indexPosition, newNode);
             }
 
             return false;
@@ -113,14 +112,34 @@ export class AStar {
         return true;
     }
 
+    reset() {
+        this.openList.heap = [];
+        this.closedList.clear();
+        this.openListLookUp.clear();
+        this.foundTarget = false;
+        this.currentNode = null;
+        this.resolvedPath = []
+
+        const newNode = new AStarNode();
+        newNode.position = this.startPoint.clone();
+
+        this.openListLookUp.set(coordinateToIndex(this.columnWidth, newNode.position), newNode);
+        this.openList.push(newNode);
+    }
+
     scan() {
-        if (this.foundTarget) {
-            return;
-        }
+        // reset called by the start button to not "falsify" the brut performance of the pathfinding algorithm
+        // this.reset();
         while (!this.foundTarget) {
             const currentNode = this.getLowestNode();
+
+            if (!currentNode) {
+                console.warn("Target not found");
+                break;
+            }
             this.currentNode = currentNode;
-            this.closedList.push(currentNode);
+
+            this.closedList.add(coordinateToIndex(this.columnWidth, currentNode.position));
 
             let upBlocked = false;
             let downBlocked = false;
@@ -213,7 +232,7 @@ export class AStar {
     }
 
     setResolvedPath() {
-        console.log("found target");
+        // console.log("found target");
 
         this.foundTarget = true;
         while (this.currentNode != null && !this.currentNode.position.equals(this.startPoint)) {
@@ -224,34 +243,12 @@ export class AStar {
     }
 
     getLowestNode() {
-        if (this.openList.length == 0) {
-            throw new Error("Open list is empty");
-        }
-
-        const minFCost = Math.min(...this.openList.map((n) => n.fCost));
-
-        const index = this.openList.findIndex((n) => n.fCost == minFCost);
-        if (index == -1) {
-            throw new Error("findIndex fricked");
-        }
-
-        return this.openList.splice(index, 1)[0];
+        return this.openList.pop();
     }
 
     /**@param {Vector2} position  */
     isInBounds(position) {
         return position.x >= 0 && position.x < this.columnWidth && position.y >= 0 && position.y < this.rowHeight;
-    }
-
-    /**@param {Vector2} position  */
-    isInOpenList(position) {
-        for (let i = 0; i < this.openList.length; i++) {
-            if (this.openList[i].position.equals(position)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**@param {Vector2} position  */
